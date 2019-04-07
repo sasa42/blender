@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -24,6 +21,7 @@ set(INC
 	../../blenkernel
 	../../blenlib
 	../../blentranslation
+	../../depsgraph
 	../../imbuf
 	../../gpu
 	../../makesdna
@@ -46,6 +44,7 @@ set(SRC
 	node_buttons.c
 	node_draw.c
 	node_edit.c
+	node_gizmo.c
 	node_group.c
 	node_ops.c
 	node_relationships.c

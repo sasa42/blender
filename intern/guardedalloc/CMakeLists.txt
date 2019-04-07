@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -51,6 +46,11 @@ if(WIN32 AND NOT UNIX)
 
 		mmap_win.h
 	)
+endif()
+
+# Jemalloc 5.0.0+ needs extra configuration.
+if(WITH_MEM_JEMALLOC AND NOT ("${JEMALLOC_VERSION}" VERSION_LESS "5.0.0"))
+	add_definitions(-DWITH_JEMALLOC_CONF)
 endif()
 
 blender_add_lib(bf_intern_guardedalloc "${SRC}" "${INC}" "${INC_SYS}")

@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -23,6 +20,7 @@ set(INC
 	../../blenkernel
 	../../blenlib
 	../../blentranslation
+	../../depsgraph
 	../../imbuf
 	../../gpu
 	../../makesdna
@@ -37,12 +35,15 @@ set(INC_SYS
 )
 
 set(SRC
+	outliner_collections.c
+	outliner_dragdrop.c
 	outliner_draw.c
 	outliner_edit.c
 	outliner_ops.c
 	outliner_select.c
 	outliner_tools.c
 	outliner_tree.c
+	outliner_utils.c
 	space_outliner.c
 
 	outliner_intern.h

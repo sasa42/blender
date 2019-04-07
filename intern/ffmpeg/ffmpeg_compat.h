@@ -15,7 +15,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #ifndef __FFMPEG_COMPAT_H__
@@ -117,6 +116,45 @@ int av_sample_fmt_is_planar(enum AVSampleFormat sample_fmt)
 	return 0;
 }
 
+#endif
+
+/* XXX TODO Probably fix to correct modern flags in code? Not sure how old FFMPEG we want to support though,
+ * so for now this will do. */
+
+#ifndef FF_MIN_BUFFER_SIZE
+#  ifdef AV_INPUT_BUFFER_MIN_SIZE
+#    define FF_MIN_BUFFER_SIZE AV_INPUT_BUFFER_MIN_SIZE
+#  endif
+#endif
+
+#ifndef FF_INPUT_BUFFER_PADDING_SIZE
+#  ifdef AV_INPUT_BUFFER_PADDING_SIZE
+#    define FF_INPUT_BUFFER_PADDING_SIZE AV_INPUT_BUFFER_PADDING_SIZE
+#  endif
+#endif
+
+#ifndef CODEC_FLAG_GLOBAL_HEADER
+#  ifdef AV_CODEC_FLAG_GLOBAL_HEADER
+#    define CODEC_FLAG_GLOBAL_HEADER AV_CODEC_FLAG_GLOBAL_HEADER
+#  endif
+#endif
+
+#ifndef CODEC_FLAG_GLOBAL_HEADER
+#  ifdef AV_CODEC_FLAG_GLOBAL_HEADER
+#    define CODEC_FLAG_GLOBAL_HEADER AV_CODEC_FLAG_GLOBAL_HEADER
+#  endif
+#endif
+
+#ifndef CODEC_FLAG_INTERLACED_DCT
+#  ifdef AV_CODEC_FLAG_INTERLACED_DCT
+#    define CODEC_FLAG_INTERLACED_DCT AV_CODEC_FLAG_INTERLACED_DCT
+#  endif
+#endif
+
+#ifndef CODEC_FLAG_INTERLACED_ME
+#  ifdef AV_CODEC_FLAG_INTERLACED_ME
+#    define CODEC_FLAG_INTERLACED_ME AV_CODEC_FLAG_INTERLACED_ME
+#  endif
 #endif
 
 /* FFmpeg upstream 1.0 is the first who added AV_ prefix. */
@@ -481,6 +519,14 @@ AVRational av_get_r_frame_rate_compat(AVFormatContext *ctx,
 	/* For until r_frame_rate was deprecated use it. */
 	return stream->r_frame_rate;
 #else
+#  ifdef AV_USING_FFMPEG
+	/* Some of the videos might have average frame rate set to, while the
+	 * r_frame_rate will show a correct value. This happens, for example, for
+	 * OGG video files saved with Blender. */
+	if (stream->avg_frame_rate.den == 0) {
+		return stream->r_frame_rate;
+	}
+#  endif
 	return stream->avg_frame_rate;
 #endif
 }

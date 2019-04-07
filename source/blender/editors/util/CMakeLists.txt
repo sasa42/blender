@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -24,6 +21,7 @@ set(INC
 	../../blenlib
 	../../blentranslation
 	../../bmesh
+	../../depsgraph
 	../../imbuf
 	../../gpu
 	../../makesdna
@@ -41,7 +39,9 @@ set(INC_SYS
 set(SRC
 	ed_transverts.c
 	ed_util.c
+	gizmo_utils.c
 	numinput.c
+	select_utils.c
 
 	# general includes
 	../include/BIF_gl.h
@@ -53,6 +53,8 @@ set(SRC
 	../include/ED_curve.h
 	../include/ED_datafiles.h
 	../include/ED_fileselect.h
+	../include/ED_gizmo_library.h
+	../include/ED_gizmo_utils.h
 	../include/ED_gpencil.h
 	../include/ED_image.h
 	../include/ED_info.h
@@ -73,9 +75,11 @@ set(SRC
 	../include/ED_particle.h
 	../include/ED_physics.h
 	../include/ED_render.h
+	../include/ED_scene.h
 	../include/ED_screen.h
 	../include/ED_screen_types.h
 	../include/ED_sculpt.h
+	../include/ED_select_utils.h
 	../include/ED_sequencer.h
 	../include/ED_sound.h
 	../include/ED_space_api.h
@@ -84,6 +88,7 @@ set(SRC
 	../include/ED_transform_snap_object_context.h
 	../include/ED_transverts.h
 	../include/ED_types.h
+	../include/ED_undo.h
 	../include/ED_util.h
 	../include/ED_uvedit.h
 	../include/ED_view3d.h

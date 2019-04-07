@@ -56,6 +56,7 @@ KERNEL_TEX(uint, __patches)
 /* attributes */
 KERNEL_TEX(uint4, __attributes_map)
 KERNEL_TEX(float, __attributes_float)
+KERNEL_TEX(float2, __attributes_float2)
 KERNEL_TEX(float4, __attributes_float3)
 KERNEL_TEX(uchar4, __attributes_uchar4)
 
@@ -81,5 +82,7 @@ KERNEL_TEX(uint, __sobol_directions)
 /* image textures */
 KERNEL_TEX(TextureInfo, __texture_info)
 
-#undef KERNEL_TEX
+/* ies lights */
+KERNEL_TEX(float, __ies)
 
+#undef KERNEL_TEX

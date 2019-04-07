@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,10 @@
  *
  * The Original Code is Copyright (C) 2012 Blender Foundation.
  * All rights reserved.
- *
- * Contributor(s): Blender Foundation,
- *                 Sergey Sharybin
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/seqmodifier.c
- *  \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #include <stddef.h>
@@ -532,7 +525,7 @@ static void brightcontrast_apply_threaded(int width, int height, unsigned char *
 						v = (float) pixel[c] / 255.0f * (1.0f - t) + v * t;
 					}
 
-					pixel[c] = FTOCHAR(v);
+					pixel[c] = unit_float_to_uchar_clamp(v);
 				}
 			}
 			else if (rect_float) {

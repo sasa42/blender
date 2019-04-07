@@ -16,15 +16,9 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain
-#                 Ben Batt
-#
 # ***** END GPL LICENSE BLOCK *****
 
-set(INC 
+set(INC
 	.
 	intern
 	../blenkernel
@@ -96,10 +90,11 @@ set(SRC
 	intern/MOD_surfacedeform.c
 	intern/MOD_triangulate.c
 	intern/MOD_util.c
-	intern/MOD_uvwarp.c
 	intern/MOD_uvproject.c
+	intern/MOD_uvwarp.c
 	intern/MOD_warp.c
 	intern/MOD_wave.c
+	intern/MOD_weighted_normal.c
 	intern/MOD_weightvg_util.c
 	intern/MOD_weightvgedit.c
 	intern/MOD_weightvgmix.c
@@ -112,10 +107,6 @@ set(SRC
 	intern/MOD_util.h
 	intern/MOD_weightvg_util.h
 )
-
-if(WITH_LEGACY_DEPSGRAPH)
-	add_definitions(-DWITH_LEGACY_DEPSGRAPH)
-endif()
 
 if(WITH_ALEMBIC)
 	add_definitions(-DWITH_ALEMBIC)
@@ -147,8 +138,7 @@ if(WITH_INTERNATIONAL)
 	add_definitions(-DWITH_INTERNATIONAL)
 endif()
 
-if(WITH_OPENSUBDIV)
-	add_definitions(-DWITH_OPENSUBDIV)
-endif()
+# So we can have special tricks in modifier system.
+add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_modifiers "${SRC}" "${INC}" "${INC_SYS}")

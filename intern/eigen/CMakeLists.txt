@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2015, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Bastien Montagne.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -36,10 +31,12 @@ set(SRC
 
 	intern/eigenvalues.cc
 	intern/linear_solver.cc
+	intern/matrix.cc
 	intern/svd.cc
 
 	intern/eigenvalues.h
 	intern/linear_solver.h
+	intern/matrix.h
 	intern/svd.h
 )
 

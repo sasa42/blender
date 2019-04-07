@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,15 +15,10 @@
  *
  * The Original Code is Copyright (C) 2009 Blender Foundation.
  * All rights reserved.
- *
- *
- * Contributor(s): Joshua Leung, Arystanbek Dyussenov
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/makesrna/intern/rna_scene_api.c
- *  \ingroup RNA
+/** \file
+ * \ingroup RNA
  */
 
 
@@ -60,12 +53,13 @@ const EnumPropertyItem rna_enum_abc_compression_items[] = {
 #ifdef RNA_RUNTIME
 
 #include "BKE_animsys.h"
-#include "BKE_depsgraph.h"
 #include "BKE_editmesh.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_scene.h"
 #include "BKE_writeavi.h"
+
+#include "DEG_depsgraph_query.h"
 
 #include "ED_transform.h"
 #include "ED_transform_snap_object_context.h"
@@ -86,8 +80,13 @@ static void rna_Scene_frame_set(Scene *scene, Main *bmain, int frame, float subf
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	/* It's possible that here we're including layers which were never visible before. */
-	BKE_scene_update_for_newframe_ex(bmain->eval_ctx, bmain, scene, (1 << 20) - 1, true);
+	for (ViewLayer *view_layer = scene->view_layers.first;
+	     view_layer != NULL;
+	     view_layer = view_layer->next)
+	{
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+		BKE_scene_graph_update_for_newframe(depsgraph, bmain);
+	}
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -99,9 +98,9 @@ static void rna_Scene_frame_set(Scene *scene, Main *bmain, int frame, float subf
 	 * redrawing while the data is being modified for render */
 	if (!G.is_rendering) {
 		/* cant use NC_SCENE|ND_FRAME because this causes wm_event_do_notifiers to call
-		 * BKE_scene_update_for_newframe which will loose any un-keyed changes [#24690] */
+		 * BKE_scene_graph_update_for_newframe which will loose any un-keyed changes [#24690] */
 		/* WM_main_add_notifier(NC_SCENE|ND_FRAME, scene); */
-		
+
 		/* instead just redraw the views */
 		WM_main_add_notifier(NC_WINDOW, NULL);
 	}
@@ -127,14 +126,21 @@ static void rna_Scene_update_tagged(Scene *scene, Main *bmain)
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	BKE_scene_update_tagged(bmain->eval_ctx, bmain, scene);
+	for (ViewLayer *view_layer = scene->view_layers.first;
+	     view_layer != NULL;
+	     view_layer = view_layer->next)
+	{
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+		BKE_scene_graph_update_tagged(depsgraph, bmain);
+	}
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
 #endif
 }
 
-static void rna_SceneRender_get_frame_path(RenderData *rd, int frame, int preview, const char *view, char *name)
+static void rna_SceneRender_get_frame_path(
+        RenderData *rd, Main *bmain, int frame, bool preview, const char *view, char *name)
 {
 	const char *suffix = BKE_scene_multiview_view_suffix_get(rd, view);
 
@@ -147,20 +153,21 @@ static void rna_SceneRender_get_frame_path(RenderData *rd, int frame, int previe
 	}
 	else {
 		BKE_image_path_from_imformat(
-		        name, rd->pic, G.main->name, (frame == INT_MIN) ? rd->cfra : frame,
+		        name, rd->pic, BKE_main_blendfile_path(bmain), (frame == INT_MIN) ? rd->cfra : frame,
 		        &rd->im_format, (rd->scemode & R_EXTENSION) != 0, true, suffix);
 	}
 }
 
 static void rna_Scene_ray_cast(
-        Scene *scene, float origin[3], float direction[3], float ray_dist,
-        int *r_success, float r_location[3], float r_normal[3], int *r_index,
+        Scene *scene, Main *bmain, ViewLayer *view_layer,
+        float origin[3], float direction[3], float ray_dist,
+        bool *r_success, float r_location[3], float r_normal[3], int *r_index,
         Object **r_ob, float r_obmat[16])
 {
 	normalize_v3(direction);
 
-	SnapObjectContext *sctx = ED_transform_snap_object_context_create(
-	        G.main, scene, 0);
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
+	SnapObjectContext *sctx = ED_transform_snap_object_context_create(bmain, scene, depsgraph, 0);
 
 	bool ret = ED_transform_snap_object_project_ray_ex(
 	        sctx,
@@ -173,6 +180,10 @@ static void rna_Scene_ray_cast(
 
 	ED_transform_snap_object_context_destroy(sctx);
 
+	if (r_ob != NULL && *r_ob != NULL) {
+		*r_ob = DEG_get_original_object(*r_ob);
+	}
+
 	if (ret) {
 		*r_success = true;
 	}
@@ -183,6 +194,11 @@ static void rna_Scene_ray_cast(
 		zero_v3(r_location);
 		zero_v3(r_normal);
 	}
+}
+
+static void rna_Scene_sequencer_editing_free(Scene *scene)
+{
+	BKE_sequencer_editing_free(scene, true);
 }
 
 #ifdef WITH_ALEMBIC
@@ -197,22 +213,22 @@ static void rna_Scene_alembic_export(
         int geom_samples,
         float shutter_open,
         float shutter_close,
-        int selected_only,
-        int uvs,
-        int normals,
-        int vcolors,
-        int apply_subdiv,
-        int flatten_hierarchy,
-        int visible_layers_only,
-        int renderable_only,
-        int face_sets,
-        int use_subdiv_schema,
-        int export_hair,
-        int export_particles,
+        bool selected_only,
+        bool uvs,
+        bool normals,
+        bool vcolors,
+        bool apply_subdiv,
+        bool flatten_hierarchy,
+        bool visible_layers_only,
+        bool renderable_only,
+        bool face_sets,
+        bool use_subdiv_schema,
+        bool export_hair,
+        bool export_particles,
         int compression_type,
-        int packuv,
+        bool packuv,
         float scale,
-        int triangulate,
+        bool triangulate,
         int quad_method,
         int ngon_method)
 {
@@ -288,10 +304,13 @@ void RNA_api_scene(StructRNA *srna)
 	parm = RNA_def_float_vector(func, "result", 2, NULL, 0.0f, FLT_MAX, "", "aspect", 0.0f, FLT_MAX);
 	RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0);
 	RNA_def_function_output(func, parm);
-	
+
 	/* Ray Cast */
 	func = RNA_def_function(srna, "ray_cast", "rna_Scene_ray_cast");
+	RNA_def_function_flag(func, FUNC_USE_MAIN);
 	RNA_def_function_ui_description(func, "Cast a ray onto in object space");
+	parm = RNA_def_pointer(func, "view_layer", "ViewLayer", "", "Scene Layer");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	/* ray start and end */
 	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX, "", "", -1e4, 1e4);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
@@ -317,6 +336,15 @@ void RNA_api_scene(StructRNA *srna)
 	parm = RNA_def_float_matrix(func, "matrix", 4, 4, NULL, 0.0f, 0.0f, "", "Matrix", 0.0f, 0.0f);
 	RNA_def_function_output(func, parm);
 
+	/* Sequencer. */
+	func = RNA_def_function(srna, "sequence_editor_create", "BKE_sequencer_editing_ensure");
+	RNA_def_function_ui_description(func, "Ensure sequence editor is valid in this scene");
+	parm = RNA_def_pointer(func, "sequence_editor", "SequenceEditor", "", "New sequence editor data or NULL");
+	RNA_def_function_return(func, parm);
+
+	func = RNA_def_function(srna, "sequence_editor_clear", "rna_Scene_sequencer_editing_free");
+	RNA_def_function_ui_description(func, "Clear sequence editor in this scene");
+
 #ifdef WITH_ALEMBIC
 	/* XXX Deprecated, will be removed in 2.8 in favour of calling the export operator. */
 	func = RNA_def_function(srna, "alembic_export", "rna_Scene_alembic_export");
@@ -332,20 +360,20 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_int(func, "geom_samples", 1, 1, 128, "Geom samples", "Geometry samples per frame", 1, 128);
 	RNA_def_float(func, "shutter_open", 0.0f, -1.0f, 1.0f, "Shutter open", "", -1.0f, 1.0f);
 	RNA_def_float(func, "shutter_close", 1.0f, -1.0f, 1.0f, "Shutter close", "", -1.0f, 1.0f);
-	RNA_def_boolean(func, "selected_only"	, 0, "Selected only", "Export only selected objects");
-	RNA_def_boolean(func, "uvs"			, 1, "UVs", "Export UVs");
-	RNA_def_boolean(func, "normals"		, 1, "Normals", "Export normals");
-	RNA_def_boolean(func, "vcolors"		, 0, "Vertex colors", "Export vertex colors");
-	RNA_def_boolean(func, "apply_subdiv"	, 1, "Subsurfs as meshes", "Export subdivision surfaces as meshes");
-	RNA_def_boolean(func, "flatten"		, 0, "Flatten hierarchy", "Flatten hierarchy");
-	RNA_def_boolean(func, "visible_layers_only"	, 0, "Visible layers only", "Export only objects in visible layers");
-	RNA_def_boolean(func, "renderable_only"	, 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
-	RNA_def_boolean(func, "face_sets"	, 0, "Facesets", "Export face sets");
+	RNA_def_boolean(func, "selected_only", 0, "Selected only", "Export only selected objects");
+	RNA_def_boolean(func, "uvs", 1, "UVs", "Export UVs");
+	RNA_def_boolean(func, "normals", 1, "Normals", "Export normals");
+	RNA_def_boolean(func, "vcolors", 0, "Vertex colors", "Export vertex colors");
+	RNA_def_boolean(func, "apply_subdiv", 1, "Subsurfs as meshes", "Export subdivision surfaces as meshes");
+	RNA_def_boolean(func, "flatten", 0, "Flatten hierarchy", "Flatten hierarchy");
+	RNA_def_boolean(func, "visible_layers_only", 0, "Visible layers only", "Export only objects in visible layers");
+	RNA_def_boolean(func, "renderable_only", 0, "Renderable objects only", "Export only objects marked renderable in the outliner");
+	RNA_def_boolean(func, "face_sets", 0, "Facesets", "Export face sets");
 	RNA_def_boolean(func, "subdiv_schema", 0, "Use Alembic subdivision Schema", "Use Alembic subdivision Schema");
 	RNA_def_boolean(func, "export_hair", 1, "Export Hair", "Exports hair particle systems as animated curves");
 	RNA_def_boolean(func, "export_particles", 1, "Export Particles", "Exports non-hair particle systems");
 	RNA_def_enum(func, "compression_type", rna_enum_abc_compression_items, 0, "Compression", "");
-	RNA_def_boolean(func, "packuv"		, 0, "Export with packed UV islands", "Export with packed UV islands");
+	RNA_def_boolean(func, "packuv", 0, "Export with packed UV islands", "Export with packed UV islands");
 	RNA_def_float(func, "scale", 1.0f, 0.0001f, 1000.0f, "Scale", "Value by which to enlarge or shrink the objects with respect to the world's origin", 0.0001f, 1000.0f);
 	RNA_def_boolean(func, "triangulate", 0, "Triangulate", "Export Polygons (Quads & NGons) as Triangles");
 	RNA_def_enum(func, "quad_method", rna_enum_modifier_triangulate_quad_method_items, 0, "Quad Method", "Method for splitting the quads into triangles");
@@ -362,6 +390,7 @@ void RNA_api_scene_render(StructRNA *srna)
 	PropertyRNA *parm;
 
 	func = RNA_def_function(srna, "frame_path", "rna_SceneRender_get_frame_path");
+	RNA_def_function_flag(func, FUNC_USE_MAIN);
 	RNA_def_function_ui_description(func, "Return the absolute path to the filename to be written for a given frame");
 	RNA_def_int(func, "frame", INT_MIN, INT_MIN, INT_MAX, "",
 	            "Frame number to use, if unset the current frame will be used", MINAFRAME, MAXFRAME);

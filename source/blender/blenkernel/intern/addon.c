@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenkernel/intern/addon.c
- *  \ingroup bke
+/** \file
+ * \ingroup bke
  */
 
 #include <stddef.h>
@@ -40,8 +34,11 @@
 #include "DNA_listBase.h"
 #include "DNA_userdef_types.h"
 
-
 #include "MEM_guardedalloc.h"
+
+#include "CLG_log.h"
+
+static CLG_LogRef LOG = {"bke.addon"};
 
 /* -------------------------------------------------------------------- */
 /** \name Add-on New/Free
@@ -53,15 +50,31 @@ bAddon *BKE_addon_new(void)
 	return addon;
 }
 
+bAddon *BKE_addon_find(ListBase *addon_list, const char *module)
+{
+	return BLI_findstring(addon_list, module, offsetof(bAddon, module));
+}
+
 bAddon *BKE_addon_ensure(ListBase *addon_list, const char *module)
 {
-	bAddon *addon = BLI_findstring(addon_list, module, offsetof(bAddon, module));
+	bAddon *addon = BKE_addon_find(addon_list, module);
 	if (addon == NULL) {
 		addon = BKE_addon_new();
 		BLI_strncpy(addon->module, module, sizeof(addon->module));
 		BLI_addtail(addon_list, addon);
 	}
 	return addon;
+}
+
+bool BKE_addon_remove_safe(ListBase *addon_list, const char *module)
+{
+	bAddon *addon = BLI_findstring(addon_list, module, offsetof(bAddon, module));
+	if (addon) {
+		BLI_remlink(addon_list, addon);
+		BKE_addon_free(addon);
+		return true;
+	}
+	return false;
 }
 
 void BKE_addon_free(bAddon *addon)
@@ -93,12 +106,12 @@ bAddonPrefType *BKE_addon_pref_type_find(const char *idname, bool quiet)
 		}
 
 		if (!quiet) {
-			printf("search for unknown addon-pref '%s'\n", idname);
+			CLOG_WARN(&LOG, "search for unknown addon-pref '%s'", idname);
 		}
 	}
 	else {
 		if (!quiet) {
-			printf("search for empty addon-pref\n");
+			CLOG_WARN(&LOG, "search for empty addon-pref");
 		}
 	}
 

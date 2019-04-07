@@ -68,7 +68,7 @@ ccl_device_inline bool volume_shader_sample(KernelGlobals *kg,
 
 	if(!(sd->flag & (SD_EXTINCTION|SD_SCATTER|SD_EMISSION)))
 		return false;
-	
+
 	coeff->sigma_s = make_float3(0.0f, 0.0f, 0.0f);
 	coeff->sigma_t = (sd->flag & SD_EXTINCTION)? sd->closure_transparent_extinction:
 	                                             make_float3(0.0f, 0.0f, 0.0f);
@@ -87,11 +87,11 @@ ccl_device_inline bool volume_shader_sample(KernelGlobals *kg,
 	return true;
 }
 
-#endif /* __VOLUME__ */
+#endif  /* __VOLUME__ */
 
 ccl_device float3 volume_color_transmittance(float3 sigma, float t)
 {
-	return make_float3(expf(-sigma.x * t), expf(-sigma.y * t), expf(-sigma.z * t));
+	return exp3(-sigma * t);
 }
 
 ccl_device float kernel_volume_channel_get(float3 value, int channel)
@@ -234,7 +234,7 @@ ccl_device void kernel_volume_shadow_heterogeneous(KernelGlobals *kg,
 
 			sum += (-sigma_t * (new_t - t));
 			if((i & 0x07) == 0) { /* ToDo: Other interval? */
-				tp = *throughput * make_float3(expf(sum.x), expf(sum.y), expf(sum.z));
+				tp = *throughput * exp3(sum);
 
 				/* stop if nearly all light is blocked */
 				if(tp.x < tp_eps && tp.y < tp_eps && tp.z < tp_eps)
@@ -246,7 +246,7 @@ ccl_device void kernel_volume_shadow_heterogeneous(KernelGlobals *kg,
 		t = new_t;
 		if(t == ray->t) {
 			/* Update throughput in case we haven't done it above */
-			tp = *throughput * make_float3(expf(sum.x), expf(sum.y), expf(sum.z));
+			tp = *throughput * exp3(sum);
 			break;
 		}
 	}
@@ -270,7 +270,7 @@ ccl_device_noinline void kernel_volume_shadow(KernelGlobals *kg,
 		kernel_volume_shadow_homogeneous(kg, state, ray, shadow_sd, throughput);
 }
 
-#endif /* __VOLUME__ */
+#endif  /* __VOLUME__ */
 
 /* Equi-angular sampling as in:
  * "Importance Sampling Techniques for Path Tracing in Participating Media" */
@@ -368,7 +368,7 @@ ccl_device float3 kernel_volume_emission_integrate(VolumeShaderCoefficients *coe
 	}
 	else
 		emission *= t;
-	
+
 	return emission;
 }
 
@@ -383,18 +383,22 @@ ccl_device int kernel_volume_sample_channel(float3 albedo, float3 throughput, fl
 	 *  Tracing". Matt Jen-Yuan Chiang, Peter Kutz, Brent Burley. SIGGRAPH 2016. */
 	float3 weights = fabs(throughput * albedo);
 	float sum_weights = weights.x + weights.y + weights.z;
+	float3 weights_pdf;
 
 	if(sum_weights > 0.0f) {
-		*pdf = weights/sum_weights;
+		weights_pdf = weights/sum_weights;
 	}
 	else {
-		*pdf = make_float3(1.0f/3.0f, 1.0f/3.0f, 1.0f/3.0f);
+		weights_pdf = make_float3(1.0f/3.0f, 1.0f/3.0f, 1.0f/3.0f);
 	}
 
-	if(rand < pdf->x) {
+	*pdf = weights_pdf;
+
+	/* OpenCL does not support -> on float3, so don't use pdf->x. */
+	if(rand < weights_pdf.x) {
 		return 0;
 	}
-	else if(rand < pdf->x + pdf->y) {
+	else if(rand < weights_pdf.x + weights_pdf.y) {
 		return 1;
 	}
 	else {
@@ -475,12 +479,15 @@ ccl_device VolumeIntegrateResult kernel_volume_integrate_homogeneous(
 			new_tp = *throughput * transmittance / pdf;
 		}
 	}
-	else 
+	else
 #endif
 	if(closure_flag & SD_EXTINCTION) {
 		/* absorption only, no sampling needed */
 		float3 transmittance = volume_color_transmittance(coeff.sigma_t, t);
 		new_tp = *throughput * transmittance;
+	}
+	else {
+		new_tp = *throughput;
 	}
 
 	/* integrate emission attenuated by extinction */
@@ -596,12 +603,15 @@ ccl_device VolumeIntegrateResult kernel_volume_integrate_heterogeneous_distance(
 					xi = 1.0f - (1.0f - xi)/sample_transmittance;
 				}
 			}
-			else 
+			else
 #endif
 			if(closure_flag & SD_EXTINCTION) {
 				/* absorption only, no sampling needed */
 				transmittance = volume_color_transmittance(coeff.sigma_t, dt);
 				new_tp = tp * transmittance;
+			}
+			else {
+				new_tp = tp;
 			}
 
 			/* integrate emission attenuated by absorption */
@@ -751,7 +761,7 @@ ccl_device void kernel_volume_decoupled_record(KernelGlobals *kg, PathState *sta
 		step_offset = 0.0f;
 		segment->steps = &segment->stack_step;
 	}
-	
+
 	/* init accumulation variables */
 	float3 accum_emission = make_float3(0.0f, 0.0f, 0.0f);
 	float3 accum_transmittance = make_float3(1.0f, 1.0f, 1.0f);
@@ -1075,7 +1085,7 @@ ccl_device VolumeIntegrateResult kernel_volume_decoupled_scatter(
 
 	return VOLUME_PATH_SCATTERED;
 }
-#endif /* __SPLIT_KERNEL */
+#endif  /* __SPLIT_KERNEL */
 
 /* decide if we need to use decoupled or not */
 ccl_device bool kernel_volume_use_decoupled(KernelGlobals *kg, bool heterogeneous, bool direct, int sampling_method)
@@ -1172,7 +1182,7 @@ ccl_device void kernel_volume_stack_init(KernelGlobals *kg,
 						break;
 					}
 				}
-				if(need_add) {
+				if(need_add && stack_index < VOLUME_STACK_SIZE - 1) {
 					stack[stack_index].object = stack_sd->object;
 					stack[stack_index].shader = stack_sd->shader;
 					++stack_index;
@@ -1263,7 +1273,7 @@ ccl_device void kernel_volume_stack_enter_exit(KernelGlobals *kg, ShaderData *sd
 
 	if(!(sd->flag & SD_HAS_VOLUME))
 		return;
-	
+
 	if(sd->flag & SD_BACKFACING) {
 		/* exit volume object: remove from stack */
 		for(int i = 0; stack[i].shader != SHADER_NONE; i++) {
@@ -1377,6 +1387,6 @@ ccl_device_inline void kernel_volume_clean_stack(KernelGlobals *kg,
 	}
 }
 
-#endif /* __VOLUME__ */
+#endif  /* __VOLUME__ */
 
 CCL_NAMESPACE_END

@@ -368,12 +368,16 @@ ccl_device void kernel_branched_path_subsurface_scatter(KernelGlobals *kg,
 			/* compute lighting with the BSDF closure */
 			for(int hit = 0; hit < num_hits; hit++) {
 				ShaderData bssrdf_sd = *sd;
+				Bssrdf *bssrdf = (Bssrdf *)sc;
+				ClosureType bssrdf_type = sc->type;
+				float bssrdf_roughness = bssrdf->roughness;
 				subsurface_scatter_multi_setup(kg,
 				                               &ss_isect,
 				                               hit,
 				                               &bssrdf_sd,
 				                               &hit_state,
-				                               sc);
+				                               bssrdf_type,
+				                               bssrdf_roughness);
 
 #ifdef __VOLUME__
 				if(need_update_volume_stack) {
@@ -526,7 +530,7 @@ ccl_device void kernel_branched_path_integrate(KernelGlobals *kg,
 
 #ifdef __AO__
 		/* ambient occlusion */
-		if(kernel_data.integrator.use_ambient_occlusion || (sd.flag & SD_AO)) {
+		if(kernel_data.integrator.use_ambient_occlusion) {
 			kernel_branched_path_ao(kg, &sd, emission_sd, L, &state, throughput);
 		}
 #endif  /* __AO__ */

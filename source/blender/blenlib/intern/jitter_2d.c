@@ -1,10 +1,8 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
+ * of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,17 +15,11 @@
  *
  * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/jitter_2d.c
- *  \ingroup bli
- *  \brief Jitter offset table
+/** \file
+ * \ingroup bli
+ * \brief Jitter offset table
  */
 
 #include <math.h>
@@ -112,17 +104,17 @@ void BLI_jitterate2(float (*jit1)[2], float (*jit2)[2], int num, float rad2)
 				vecx = jit1[j][0] - x - 1.0f;
 				vecy = jit1[j][1] - y - 1.0f;
 
-				if (fabsf(vecx) < rad2) dvecx += vecx * rad2;
+				if (fabsf(vecx) < rad2) { dvecx += vecx * rad2; }
 				vecx += 1.0f;
-				if (fabsf(vecx) < rad2) dvecx += vecx * rad2;
+				if (fabsf(vecx) < rad2) { dvecx += vecx * rad2; }
 				vecx += 1.0f;
-				if (fabsf(vecx) < rad2) dvecx += vecx * rad2;
+				if (fabsf(vecx) < rad2) { dvecx += vecx * rad2; }
 
-				if (fabsf(vecy) < rad2) dvecy += vecy * rad2;
+				if (fabsf(vecy) < rad2) { dvecy += vecy * rad2; }
 				vecy += 1.0f;
-				if (fabsf(vecy) < rad2) dvecy += vecy * rad2;
+				if (fabsf(vecy) < rad2) { dvecy += vecy * rad2; }
 				vecy += 1.0f;
-				if (fabsf(vecy) < rad2) dvecy += vecy * rad2;
+				if (fabsf(vecy) < rad2) { dvecy += vecy * rad2; }
 
 			}
 		}
@@ -177,7 +169,7 @@ void BLI_jitter_init(float (*jitarr)[2], int num)
 	}
 
 	MEM_freeN(jit2);
-	
+
 	/* finally, move jittertab to be centered around (0, 0) */
 	for (i = 0; i < num; i++) {
 		jitarr[i][0] -= 0.5f;

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,17 +15,11 @@
  *
  * The Original Code is Copyright (C) 2004 Blender Foundation
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  * .blend file reading entry point
  */
 
-/** \file blender/blenloader/intern/undofile.c
- *  \ingroup blenloader
+/** \file
+ * \ingroup blenloader
  */
 
 #include <stdlib.h>
@@ -64,7 +56,7 @@
 void BLO_memfile_free(MemFile *memfile)
 {
 	MemFileChunk *chunk;
-	
+
 	while ((chunk = BLI_pophead(&memfile->chunks))) {
 		if (chunk->is_identical == false) {
 			MEM_freeN((void *)chunk->buf);
@@ -79,7 +71,7 @@ void BLO_memfile_free(MemFile *memfile)
 void BLO_memfile_merge(MemFile *first, MemFile *second)
 {
 	MemFileChunk *fc, *sc;
-	
+
 	fc = first->chunks.first;
 	sc = second->chunks.first;
 	while (fc || sc) {
@@ -92,12 +84,12 @@ void BLO_memfile_merge(MemFile *first, MemFile *second)
 		if (fc) fc = fc->next;
 		if (sc) sc = sc->next;
 	}
-	
+
 	BLO_memfile_free(first);
 }
 
 void memfile_chunk_add(
-        MemFile *memfile, const char *buf, unsigned int size,
+        MemFile *memfile, const char *buf, uint size,
         MemFileChunk **compchunk_step)
 {
 	MemFileChunk *curchunk = MEM_mallocN(sizeof(MemFileChunk), "MemFileChunk");
@@ -130,7 +122,7 @@ void memfile_chunk_add(
 struct Main *BLO_memfile_main_get(struct MemFile *memfile, struct Main *oldmain, struct Scene **r_scene)
 {
 	struct Main *bmain_undo = NULL;
-	BlendFileData *bfd = BLO_read_from_memfile(oldmain, oldmain->name, memfile, NULL, BLO_READ_SKIP_NONE);
+	BlendFileData *bfd = BLO_read_from_memfile(oldmain, BKE_main_blendfile_path(oldmain), memfile, BLO_READ_SKIP_NONE, NULL);
 
 	if (bfd) {
 		bmain_undo = bfd->main;

@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Daniel Genrich
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -99,4 +94,3 @@ if(WITH_FFTW3)
 endif()
 
 blender_add_lib(bf_intern_smoke "${SRC}" "${INC}" "${INC_SYS}")
-

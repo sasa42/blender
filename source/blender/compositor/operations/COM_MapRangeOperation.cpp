@@ -1,6 +1,4 @@
 /*
- * Copyright 2012, Blender Foundation.
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -15,9 +13,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * Contributor: 
- *		Dalai Felinto
- *		Daniel Salazar
+ * Copyright 2012, Blender Foundation.
  */
 
 #include "COM_MapRangeOperation.h"
@@ -58,7 +54,7 @@ void MapRangeOperation::executePixelSampled(float output[4], float x, float y, P
 	this->m_sourceMaxOperation->readSampled(inputs + 2, x, y, sampler);
 	this->m_destMinOperation->readSampled(inputs + 3, x, y, sampler);
 	this->m_destMaxOperation->readSampled(inputs + 4, x, y, sampler);
-	
+
 	value = inputs[0];
 	source_min = inputs[1];
 	source_max = inputs[2];

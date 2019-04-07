@@ -22,6 +22,7 @@
 #include "render/attribute.h"
 #include "render/shader.h"
 
+#include "util/util_array.h"
 #include "util/util_boundbox.h"
 #include "util/util_list.h"
 #include "util/util_map.h"
@@ -38,6 +39,7 @@ class Device;
 class DeviceScene;
 class Mesh;
 class Progress;
+class RenderStats;
 class Scene;
 class SceneParams;
 class AttributeRequest;
@@ -272,7 +274,6 @@ public:
 	void add_curve_key(float3 loc, float radius);
 	void add_curve(int first_key, int shader);
 	void add_subd_face(int* corners, int num_corners, int shader_, bool smooth_);
-	int split_vertex(int vertex);
 
 	void compute_bounds();
 	void add_face_normals();
@@ -351,6 +352,8 @@ public:
 
 	void create_volume_mesh(Scene *scene, Mesh *mesh, Progress &progress);
 
+	void collect_statistics(const Scene *scene, RenderStats *stats);
+
 protected:
 	/* Calculate verts/triangles/curves offsets in global arrays. */
 	void mesh_calc_offset(Scene *scene);
@@ -381,11 +384,10 @@ protected:
 	                                       Progress& progress);
 
 	void device_update_volume_images(Device *device,
-									 Scene *scene,
-									 Progress& progress);
+	                                 Scene *scene,
+	                                 Progress& progress);
 };
 
 CCL_NAMESPACE_END
 
-#endif /* __MESH_H__ */
-
+#endif  /* __MESH_H__ */

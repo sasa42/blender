@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -54,6 +49,7 @@ set(SRC
 	intern/GHOST_WindowManager.cpp
 
 	GHOST_C-api.h
+	GHOST_IContext.h
 	GHOST_IEvent.h
 	GHOST_IEventConsumer.h
 	GHOST_ISystem.h
@@ -122,15 +118,15 @@ if(WITH_HEADLESS OR WITH_GHOST_SDL)
 		add_definitions(-DWITH_HEADLESS)
 	else()
 		list(APPEND SRC
+			intern/GHOST_ContextSDL.cpp
 			intern/GHOST_DisplayManagerSDL.cpp
 			intern/GHOST_SystemSDL.cpp
 			intern/GHOST_WindowSDL.cpp
-			intern/GHOST_ContextSDL.cpp
 
+			intern/GHOST_ContextSDL.h
 			intern/GHOST_DisplayManagerSDL.h
 			intern/GHOST_SystemSDL.h
 			intern/GHOST_WindowSDL.h
-			intern/GHOST_ContextSDL.h
 		)
 		add_definitions(-DWITH_GHOST_SDL)
 	endif()
@@ -176,13 +172,13 @@ elseif(WITH_X11)
 	list(APPEND SRC
 		intern/GHOST_DisplayManagerX11.cpp
 		intern/GHOST_SystemX11.cpp
-		intern/GHOST_WindowX11.cpp
 		intern/GHOST_TaskbarX11.cpp
+		intern/GHOST_WindowX11.cpp
 
 		intern/GHOST_DisplayManagerX11.h
 		intern/GHOST_SystemX11.h
-		intern/GHOST_WindowX11.h
 		intern/GHOST_TaskbarX11.h
+		intern/GHOST_WindowX11.h
 	)
 
 	if(NOT WITH_GL_EGL)
@@ -265,21 +261,21 @@ elseif(WIN32)
 
 	list(APPEND SRC
 		intern/GHOST_DisplayManagerWin32.cpp
+		intern/GHOST_DropTargetWin32.cpp
 		intern/GHOST_SystemWin32.cpp
 		intern/GHOST_WindowWin32.cpp
-		intern/GHOST_DropTargetWin32.cpp
 
 		intern/GHOST_DisplayManagerWin32.h
 		intern/GHOST_DropTargetWin32.h
 		intern/GHOST_SystemWin32.h
-		intern/GHOST_WindowWin32.h
 		intern/GHOST_TaskbarWin32.h
+		intern/GHOST_WindowWin32.h
 	)
 
 	if(NOT WITH_GL_EGL)
 		list(APPEND SRC
 			intern/GHOST_ContextWGL.cpp
-				
+
 			intern/GHOST_ContextWGL.h
 		)
 	endif()
@@ -306,15 +302,15 @@ endif()
 if(WITH_GL_EGL AND NOT (WITH_HEADLESS OR WITH_GHOST_SDL))
 	list(APPEND SRC
 		intern/GHOST_ContextEGL.cpp
-			
+
 		intern/GHOST_ContextEGL.h
 	)
 endif()
 
 if(APPLE)
 	list(APPEND SRC
-		intern/GHOST_SystemPathsCocoa.mm
 		intern/GHOST_SystemPathsCocoa.h
+		intern/GHOST_SystemPathsCocoa.mm
 	)
 
 elseif(UNIX)

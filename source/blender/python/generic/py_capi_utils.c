@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/python/generic/py_capi_utils.c
- *  \ingroup pygen
+/** \file
+ * \ingroup pygen
  *
  * Extend upon CPython's API, filling in some gaps, these functions use PyC_
  * prefix to distinguish them apart from CPython.
@@ -46,7 +42,6 @@
 #endif
 
 #ifdef _WIN32
-#include "BLI_path_util.h"  /* BLI_setenv() */
 #include "BLI_math_base.h"  /* isfinite() */
 #endif
 
@@ -91,7 +86,7 @@ int PyC_AsArray_FAST(
 		}
 	}
 	else if (type == &PyBool_Type) {
-		int *array_bool = array;
+		bool *array_bool = array;
 		for (i = 0; i < length; i++) {
 			array_bool[i] = (PyLong_AsLong(value_fast_items[i]) != 0);
 		}
@@ -230,6 +225,12 @@ int PyC_ParseBool(PyObject *o, void *p)
 	return 1;
 }
 
+/* silly function, we dont use arg. just check its compatible with __deepcopy__ */
+int PyC_CheckArgs_DeepCopy(PyObject *args)
+{
+	PyObject *dummy_pydict;
+	return PyArg_ParseTuple(args, "|O!:__deepcopy__", &PyDict_Type, &dummy_pydict) != 0;
+}
 
 #ifndef MATH_STANDALONE
 
@@ -295,7 +296,7 @@ void PyC_LineSpit(void)
 
 	PyErr_Clear();
 	PyC_FileAndNum(&filename, &lineno);
-	
+
 	fprintf(stderr, "%s:%d\n", filename, lineno);
 }
 
@@ -317,9 +318,13 @@ void PyC_StackSpit(void)
 void PyC_FileAndNum(const char **filename, int *lineno)
 {
 	PyFrameObject *frame;
-	
-	if (filename) *filename = NULL;
-	if (lineno)   *lineno = -1;
+
+	if (filename) {
+		*filename = NULL;
+	}
+	if (lineno) {
+		*lineno = -1;
+	}
 
 	if (!(frame = PyThreadState_GET()->frame)) {
 		return;
@@ -375,22 +380,25 @@ PyObject *PyC_Object_GetAttrStringArgs(PyObject *o, Py_ssize_t n, ...)
 	Py_ssize_t i;
 	PyObject *item = o;
 	const char *attr;
-	
+
 	va_list vargs;
 
 	va_start(vargs, n);
 	for (i = 0; i < n; i++) {
 		attr = va_arg(vargs, char *);
 		item = PyObject_GetAttrString(item, attr);
-		
-		if (item) 
+
+		if (item) {
 			Py_DECREF(item);
-		else /* python will set the error value here */
+		}
+		else {
+			/* python will set the error value here */
 			break;
-		
+		}
+
 	}
 	va_end(vargs);
-	
+
 	Py_XINCREF(item); /* final value has is increfed, to match PyObject_GetAttrString */
 	return item;
 }
@@ -431,23 +439,35 @@ PyObject *PyC_Err_Format_Prefix(PyObject *exception_type_prefix, const char *for
 	if (PyErr_Occurred()) {
 		PyObject *error_type, *error_value, *error_traceback;
 		PyErr_Fetch(&error_type, &error_value, &error_traceback);
-		PyErr_Format(exception_type_prefix,
-		             "%S, %.200s(%S)",
-		             error_value_prefix,
-		             Py_TYPE(error_value)->tp_name,
-		             error_value
-		             );
+
+		if (PyUnicode_Check(error_value)) {
+			PyErr_Format(exception_type_prefix,
+			             "%S, %S",
+			             error_value_prefix,
+			             error_value);
+		}
+		else {
+			PyErr_Format(exception_type_prefix,
+			             "%S, %.200s(%S)",
+			             error_value_prefix,
+			             Py_TYPE(error_value)->tp_name,
+			             error_value);
+		}
 	}
 	else {
 		PyErr_SetObject(exception_type_prefix,
-		                error_value_prefix
-		                );
+		                error_value_prefix);
 	}
 
 	Py_XDECREF(error_value_prefix);
 
 	/* dumb to always return NULL but matches PyErr_Format */
 	return NULL;
+}
+
+PyObject *PyC_Err_SetString_Prefix(PyObject *exception_type_prefix, const char *str)
+{
+	return PyC_Err_Format_Prefix(exception_type_prefix, "%s", str);
 }
 
 /**
@@ -514,8 +534,9 @@ PyObject *PyC_ExceptionBuffer(void)
 
 	PyObject *error_type, *error_value, *error_traceback;
 
-	if (!PyErr_Occurred())
+	if (!PyErr_Occurred()) {
 		return NULL;
+	}
 
 	PyErr_Fetch(&error_type, &error_value, &error_traceback);
 
@@ -580,8 +601,9 @@ PyObject *PyC_ExceptionBuffer_Simple(void)
 
 	PyObject *error_type, *error_value, *error_traceback;
 
-	if (!PyErr_Occurred())
+	if (!PyErr_Occurred()) {
 		return NULL;
+	}
 
 	PyErr_Fetch(&error_type, &error_value, &error_traceback);
 
@@ -612,7 +634,7 @@ const char *PyC_UnicodeAsByteAndSize(PyObject *py_str, Py_ssize_t *size, PyObjec
 
 	if (result) {
 		/* 99% of the time this is enough but we better support non unicode
-		 * chars since blender doesnt limit this */
+		 * chars since blender doesn't limit this */
 		return result;
 	}
 	else {
@@ -665,7 +687,7 @@ PyObject *PyC_UnicodeFromByteAndSize(const char *str, Py_ssize_t size)
 	PyObject *result = PyUnicode_FromStringAndSize(str, size);
 	if (result) {
 		/* 99% of the time this is enough but we better support non unicode
-		 * chars since blender doesnt limit this */
+		 * chars since blender doesn't limit this */
 		return result;
 	}
 	else {
@@ -685,7 +707,7 @@ PyObject *PyC_UnicodeFromByte(const char *str)
  * Description: This function creates a new Python dictionary object.
  * note: dict is owned by sys.modules["__main__"] module, reference is borrowed
  * note: important we use the dict from __main__, this is what python expects
- *  for 'pickle' to work as well as strings like this...
+ * for 'pickle' to work as well as strings like this...
  * >> foo = 10
  * >> print(__import__("__main__").foo)
  *
@@ -708,6 +730,26 @@ PyObject *PyC_DefaultNameSpace(const char *filename)
 	PyModule_AddObject(mod_main, "__builtins__", interp->builtins);
 	Py_INCREF(interp->builtins); /* AddObject steals a reference */
 	return PyModule_GetDict(mod_main);
+}
+
+bool PyC_NameSpace_ImportArray(PyObject *py_dict, const char *imports[])
+{
+	for (int i = 0; imports[i]; i++) {
+		PyObject *name = PyUnicode_FromString(imports[i]);
+		PyObject *mod = PyImport_ImportModuleLevelObject(name, NULL, NULL, 0, 0);
+		bool ok = false;
+		if (mod) {
+			PyDict_SetItem(py_dict, name, mod);
+			ok = true;
+			Py_DECREF(mod);
+		}
+		Py_DECREF(name);
+
+		if (!ok) {
+			return false;
+		}
+	}
+	return true;
 }
 
 /* restore MUST be called after this */
@@ -742,9 +784,10 @@ void PyC_SetHomePath(const char *py_path_bundle)
 #ifdef __APPLE__
 	/* OSX allow file/directory names to contain : character (represented as / in the Finder)
 	 * but current Python lib (release 3.1.1) doesn't handle these correctly */
-	if (strchr(py_path_bundle, ':'))
+	if (strchr(py_path_bundle, ':')) {
 		printf("Warning : Blender application is located in a path containing : or / chars\
 		       \nThis may make python import function fail\n");
+	}
 #endif
 
 
@@ -778,7 +821,7 @@ bool PyC_IsInterpreterActive(void)
 }
 
 /* Would be nice if python had this built in
- * See: http://wiki.blender.org/index.php/Dev:Doc/Tools/Debugging/PyFromC
+ * See: https://wiki.blender.org/wiki/Tools/Debugging/PyFromC
  */
 void PyC_RunQuicky(const char *filepath, int n, ...)
 {
@@ -839,7 +882,7 @@ void PyC_RunQuicky(const char *filepath, int n, ...)
 			}
 		}
 		va_end(vargs);
-		
+
 		/* set the value so we can access it */
 		PyDict_SetItemString(py_dict, "values", values);
 		Py_DECREF(values);
@@ -865,7 +908,7 @@ void PyC_RunQuicky(const char *filepath, int n, ...)
 				for (i = 0; i * 2 < n; i++) {
 					const char *format = va_arg(vargs, char *);
 					void *ptr = va_arg(vargs, void *);
-					
+
 					PyObject *item;
 					PyObject *item_new;
 					/* prepend the string formatting and remake the tuple */
@@ -1070,7 +1113,7 @@ PyObject *PyC_FlagSet_FromBitfield(PyC_FlagSet *items, int flag)
  *
  * \note it is caller's responsibility to acquire & release GIL!
  */
-bool PyC_RunString_AsNumber(const char *expr, const char *filename, double *r_value)
+bool PyC_RunString_AsNumber(const char *imports[], const char *expr, const char *filename, double *r_value)
 {
 	PyObject *py_dict, *mod, *retval;
 	bool ok = true;
@@ -1090,9 +1133,10 @@ bool PyC_RunString_AsNumber(const char *expr, const char *filename, double *r_va
 		PyErr_Clear();
 	}
 
-	retval = PyRun_String(expr, Py_eval_input, py_dict, py_dict);
-
-	if (retval == NULL) {
+	if (imports && (!PyC_NameSpace_ImportArray(py_dict, imports))) {
+		ok = false;
+	}
+	else if ((retval = PyRun_String(expr, Py_eval_input, py_dict, py_dict)) == NULL) {
 		ok = false;
 	}
 	else {
@@ -1134,7 +1178,7 @@ bool PyC_RunString_AsNumber(const char *expr, const char *filename, double *r_va
 	return ok;
 }
 
-bool PyC_RunString_AsString(const char *expr, const char *filename, char **r_value)
+bool PyC_RunString_AsIntPtr(const char *imports[], const char *expr, const char *filename, intptr_t *r_value)
 {
 	PyObject *py_dict, *retval;
 	bool ok = true;
@@ -1144,9 +1188,45 @@ bool PyC_RunString_AsString(const char *expr, const char *filename, char **r_val
 
 	py_dict = PyC_DefaultNameSpace(filename);
 
-	retval = PyRun_String(expr, Py_eval_input, py_dict, py_dict);
+	if (imports && (!PyC_NameSpace_ImportArray(py_dict, imports))) {
+		ok = false;
+	}
+	else if ((retval = PyRun_String(expr, Py_eval_input, py_dict, py_dict)) == NULL) {
+		ok = false;
+	}
+	else {
+		intptr_t val;
 
-	if (retval == NULL) {
+		val = (intptr_t)PyLong_AsVoidPtr(retval);
+		if (val == 0 && PyErr_Occurred()) {
+			ok = false;
+		}
+		else {
+			*r_value = val;
+		}
+
+		Py_DECREF(retval);
+	}
+
+	PyC_MainModule_Restore(main_mod);
+
+	return ok;
+}
+
+bool PyC_RunString_AsString(const char *imports[], const char *expr, const char *filename, char **r_value)
+{
+	PyObject *py_dict, *retval;
+	bool ok = true;
+	PyObject *main_mod = NULL;
+
+	PyC_MainModule_Backup(&main_mod);
+
+	py_dict = PyC_DefaultNameSpace(filename);
+
+	if (imports && (!PyC_NameSpace_ImportArray(py_dict, imports))) {
+		ok = false;
+	}
+	else if ((retval = PyRun_String(expr, Py_eval_input, py_dict, py_dict)) == NULL) {
 		ok = false;
 	}
 	else {
@@ -1174,7 +1254,6 @@ bool PyC_RunString_AsString(const char *expr, const char *filename, char **r_val
 #endif  /* #ifndef MATH_STANDALONE */
 
 /* -------------------------------------------------------------------- */
-
 /** \name Int Conversion
  *
  * \note Python doesn't provide overflow checks for specific bit-widths.
@@ -1264,6 +1343,83 @@ uint32_t PyC_Long_AsU32(PyObject *value)
 /* Inlined in header:
  * PyC_Long_AsU64
  */
+
+/* -------------------------------------------------------------------- */
+/** \name Py_buffer Utils
+ *
+ * \{ */
+
+char PyC_StructFmt_type_from_str(const char *typestr)
+{
+	switch (typestr[0]) {
+		case '!':
+		case '<':
+		case '=':
+		case '>':
+		case '@':
+			return typestr[1];
+		default:
+			return typestr[0];
+	}
+}
+
+bool PyC_StructFmt_type_is_float_any(char format)
+{
+	switch (format) {
+		case 'f':
+		case 'd':
+		case 'e':
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool PyC_StructFmt_type_is_int_any(char format)
+{
+	switch (format) {
+		case 'i':
+		case 'I':
+		case 'l':
+		case 'L':
+		case 'h':
+		case 'H':
+		case 'b':
+		case 'B':
+		case 'q':
+		case 'Q':
+		case 'n':
+		case 'N':
+		case 'P':
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool PyC_StructFmt_type_is_byte(char format)
+{
+	switch (format) {
+		case 'c':
+		case 's':
+		case 'p':
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool PyC_StructFmt_type_is_bool(char format)
+{
+	switch (format) {
+		case '?':
+			return true;
+		default:
+			return false;
+	}
+}
+
+/** \} */
 
 #ifdef __GNUC__
 #  pragma warning(pop)

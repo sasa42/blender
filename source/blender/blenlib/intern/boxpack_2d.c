@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Campbell Barton
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenlib/intern/boxpack_2d.c
- *  \ingroup bli
+/** \file
+ * \ingroup bli
  */
 
 #include <stdlib.h> /* for qsort */
@@ -50,7 +44,7 @@
 
 
 /* BoxPacker for backing 2D rectangles into a square
- * 
+ *
  * The defined Below are for internal use only */
 typedef struct BoxVert {
 	float x;
@@ -220,8 +214,8 @@ static int box_areasort(const void *p1, const void *p2)
 	const float a1 = box_area(b1);
 	const float a2 = box_area(b2);
 
-	if      (a1 < a2) return  1;
-	else if (a1 > a2) return -1;
+	if      (a1 < a2) { return  1; }
+	else if (a1 > a2) { return -1; }
 	return 0;
 }
 
@@ -246,9 +240,9 @@ static int vertex_sort(const void *p1, const void *p2, void *vs_ctx_p)
 
 #ifdef USE_FREE_STRIP
 	/* push free verts to the end so we can strip */
-	if      (UNLIKELY(v1->free == 0 && v2->free == 0)) return  0;
-	else if (UNLIKELY(v1->free == 0))                  return  1;
-	else if (UNLIKELY(v2->free == 0))                  return -1;
+	if      (UNLIKELY(v1->free == 0 && v2->free == 0)) { return  0; }
+	else if (UNLIKELY(v1->free == 0))                  { return  1; }
+	else if (UNLIKELY(v2->free == 0))                  { return -1; }
 #endif
 
 	a1 = max_ff(v1->x + vs_ctx->box_width, v1->y + vs_ctx->box_height);
@@ -260,8 +254,8 @@ static int vertex_sort(const void *p1, const void *p2, void *vs_ctx_p)
 #endif
 
 	/* sort largest to smallest */
-	if      (a1 > a2) return 1;
-	else if (a1 < a2) return -1;
+	if      (a1 > a2) { return 1; }
+	else if (a1 < a2) { return -1; }
 	return 0;
 }
 /** \} */
@@ -271,7 +265,7 @@ static int vertex_sort(const void *p1, const void *p2, void *vs_ctx_p)
  * This sets boxes x,y to positive values, sorting from 0,0 outwards.
  * There is no limit to the space boxes may take, only that they will be packed
  * tightly into the lower left hand corner (0,0)
- * 
+ *
  * \param boxarray: a pre allocated array of boxes.
  *      only the 'box->x' and 'box->y' are set, 'box->w' and 'box->h' are used,
  *      'box->index' is not used at all, the only reason its there
@@ -317,7 +311,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 		vert->used = false;
 		vert->index = i++;
 		box->v[BL] = vert++;
-		
+
 		vert->trb = vert->brb = vert->tlb =
 		            vert->isect_cache[0] = vert->isect_cache[1] =
 		            vert->isect_cache[2] = vert->isect_cache[3] = NULL;
@@ -326,7 +320,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 		vert->used = false;
 		vert->index = i++;
 		box->v[TR] = vert++;
-		
+
 		vert->trb = vert->blb = vert->tlb =
 		            vert->isect_cache[0] = vert->isect_cache[1] =
 		            vert->isect_cache[2] = vert->isect_cache[3] = NULL;
@@ -335,7 +329,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 		vert->used = false;
 		vert->index = i++;
 		box->v[TL] = vert++;
-		
+
 		vert->trb = vert->blb = vert->brb =
 		            vert->isect_cache[0] = vert->isect_cache[1] =
 		            vert->isect_cache[2] = vert->isect_cache[3] = NULL;
@@ -371,8 +365,9 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 #endif
 	}
 
-	for (i = 0; i < 3; i++)
+	for (i = 0; i < 3; i++) {
 		vertex_pack_indices[i] = box->v[i + 1]->index;
+	}
 	verts_pack_len = 3;
 	box++; /* next box, needed for the loop below */
 	/* ...done packing the first box */
@@ -406,7 +401,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 
 			/* This vert has a free quadrant
 			 * Test if we can place the box here
-			 * vert->free & quad_flags[j] - Checks 
+			 * vert->free & quad_flags[j] - Checks
 			 * */
 
 			for (j = 0; (j < 4) && isect; j++) {
@@ -434,7 +429,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 					 * with any other boxes
 					 * Assume no intersection... */
 					isect = false;
-					
+
 					if ( /* Constrain boxes to positive X/Y values */
 					    box_xmin_get(box) < 0.0f || box_ymin_get(box) < 0.0f ||
 					    /* check for last intersected */
@@ -494,8 +489,8 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 						/* Mask free flags for verts that are
 						 * on the bottom or side so we don't get
 						 * boxes outside the given rectangle ares
-						 * 
-						 * We can do an else/if here because only the first 
+						 *
+						 * We can do an else/if here because only the first
 						 * box can be at the very bottom left corner */
 						if (box_xmin_get(box) <= 0) {
 							box->v[TL]->free &= ~(TLF | BLF);
@@ -508,7 +503,7 @@ void BLI_box_pack_2d(BoxPack *boxarray, const uint len, float *r_tot_x, float *r
 
 						/* The following block of code does a logical
 						 * check with 2 adjacent boxes, its possible to
-						 * flag verts on one or both of the boxes 
+						 * flag verts on one or both of the boxes
 						 * as being used by checking the width or
 						 * height of both boxes */
 						if (vert->tlb && vert->trb && (box == vert->tlb || box == vert->trb)) {

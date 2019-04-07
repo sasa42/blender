@@ -16,14 +16,9 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Jacques Beaurain.
-#
 # ***** END GPL LICENSE BLOCK *****
 
-set(INC 
+set(INC
 	.
 	../blenkernel
 	../blenlib
@@ -83,7 +78,7 @@ set(SRC
 	intern/IMB_filter.h
 	intern/IMB_indexer.h
 	intern/imbuf.h
-	
+
 	# orphan include
 	../../../intern/ffmpeg/ffmpeg_compat.h
 )
@@ -139,10 +134,10 @@ if(WITH_CODEC_FFMPEG)
 	)
 	add_definitions(-DWITH_FFMPEG)
 
-	remove_strict_flags_file(
+	remove_strict_c_flags_file(
+		intern/anim_movie.c
 		intern/indexer.c
 		intern/util.c
-		intern/anim_movie.c
 	)
 endif()
 

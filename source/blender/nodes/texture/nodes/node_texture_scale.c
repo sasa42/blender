@@ -1,10 +1,8 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version. 
+ * of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,16 +15,10 @@
  *
  * The Original Code is Copyright (C) 2005 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): Robin Allen
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/nodes/texture/nodes/node_texture_scale.c
- *  \ingroup texnodes
+/** \file
+ * \ingroup texnodes
  */
 
 
@@ -52,7 +44,7 @@ static void colorfn(float *out, TexParams *p, bNode *UNUSED(node), bNodeStack **
 	np.co = new_co;
 	np.dxt = new_dxt;
 	np.dyt = new_dyt;
-	
+
 	tex_input_vec(scale, in[1], p, thread);
 
 	mul_v3_v3v3(new_co, p->co, scale);
@@ -60,10 +52,10 @@ static void colorfn(float *out, TexParams *p, bNode *UNUSED(node), bNodeStack **
 		mul_v3_v3v3(new_dxt, p->dxt, scale);
 		mul_v3_v3v3(new_dyt, p->dyt, scale);
 	}
-	
+
 	tex_input_rgba(out, in[0], &np, thread);
 }
-static void exec(void *data, int UNUSED(thread), bNode *node, bNodeExecData *execdata, bNodeStack **in, bNodeStack **out) 
+static void exec(void *data, int UNUSED(thread), bNode *node, bNodeExecData *execdata, bNodeStack **in, bNodeStack **out)
 {
 	tex_output(node, execdata, in, out[0], &colorfn, data);
 }
@@ -71,10 +63,10 @@ static void exec(void *data, int UNUSED(thread), bNode *node, bNodeExecData *exe
 void register_node_type_tex_scale(void)
 {
 	static bNodeType ntype;
-	
+
 	tex_node_type_base(&ntype, TEX_NODE_SCALE, "Scale", NODE_CLASS_DISTORT, 0);
 	node_type_socket_templates(&ntype, inputs, outputs);
 	node_type_exec(&ntype, NULL, NULL, exec);
-	
+
 	nodeRegisterType(&ntype);
 }

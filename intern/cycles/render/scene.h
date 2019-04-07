@@ -56,6 +56,7 @@ class ShaderManager;
 class Progress;
 class BakeManager;
 class BakeData;
+class RenderStats;
 
 /* Scene Device Data */
 
@@ -97,6 +98,7 @@ public:
 	/* attributes */
 	device_vector<uint4> attributes_map;
 	device_vector<float> attributes_float;
+	device_vector<float2> attributes_float2;
 	device_vector<float4> attributes_float3;
 	device_vector<uchar4> attributes_uchar4;
 
@@ -118,6 +120,9 @@ public:
 
 	/* integrator */
 	device_vector<uint> sobol_directions;
+
+	/* ies lights */
+	device_vector<float> ies_lights;
 
 	KernelData data;
 
@@ -162,7 +167,6 @@ public:
 	bool use_bvh_spatial_split;
 	bool use_bvh_unaligned_nodes;
 	int num_bvh_time_steps;
-
 	bool persistent_data;
 	int texture_limit;
 
@@ -193,6 +197,9 @@ public:
 
 class Scene {
 public:
+	/* Optional name. Is used for logging and reporting. */
+	string name;
+
 	/* data */
 	Camera *camera;
 	Camera *dicing_camera;
@@ -252,6 +259,8 @@ public:
 	void reset();
 	void device_free();
 
+	void collect_statistics(RenderStats *stats);
+
 protected:
 	/* Check if some heavy data worth logging was updated.
 	 * Mainly used to suppress extra annoying logging.
@@ -263,5 +272,4 @@ protected:
 
 CCL_NAMESPACE_END
 
-#endif /*  __SCENE_H__ */
-
+#endif  /*  __SCENE_H__ */

@@ -16,9 +16,6 @@
 #
 # The Original Code is Copyright (C) 2014, Blender Foundation
 # All rights reserved.
-#
-# Contributor(s): Sybren A. Stüvel
-#
 # ***** END GPL LICENSE BLOCK *****
 
 set(INC
@@ -28,6 +25,7 @@ set(INC
 	../../../source/blender/blenkernel
 	../../../source/blender/alembic
 	../../../source/blender/makesdna
+	../../../source/blender/depsgraph
 	${ALEMBIC_INCLUDE_DIRS}
 	${BOOST_INCLUDE_DIR}
 	${HDF5_INCLUDE_DIRS}

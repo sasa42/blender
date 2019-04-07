@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -17,19 +15,13 @@
  *
  * The Original Code is Copyright (C) 2006 Blender Foundation.
  * All rights reserved.
- *
- * The Original Code is: all of this file.
- *
- * Contributor(s): none yet.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
 #ifndef __BLI_THREADS_H__
-#define __BLI_THREADS_H__ 
+#define __BLI_THREADS_H__
 
-/** \file BLI_threads.h
- *  \ingroup bli
+/** \file
+ * \ingroup bli
  */
 #ifdef __cplusplus
 extern "C" {
@@ -74,9 +66,9 @@ void BLI_threaded_malloc_end(void);
 int     BLI_system_thread_count(void); /* gets the number of threads the system can make use of */
 void    BLI_system_num_threads_override_set(int num);
 int     BLI_system_num_threads_override_get(void);
-	
+
 /* Global Mutex Locks
- * 
+ *
  * One custom lock available now. can be extended. */
 
 #define LOCK_IMAGE      0
@@ -155,7 +147,7 @@ void BLI_ticket_mutex_lock(TicketMutex *ticket);
 void BLI_ticket_mutex_unlock(TicketMutex *ticket);
 
 /* Condition */
- 
+
 typedef pthread_cond_t ThreadCondition;
 
 void BLI_condition_init(ThreadCondition *cond);
@@ -204,9 +196,14 @@ void BLI_thread_queue_nowait(ThreadQueue *queue);
 #  define BLI_thread_local_set(name, value) name = value
 #endif  /* defined(__APPLE__) */
 
+/* **** Special functions to help performance on crazy NUMA setups. **** */
+
+/* Make sure process/thread is using NUMA node with fast memory access. */
+void BLI_thread_put_process_on_fast_node(void);
+void BLI_thread_put_thread_on_fast_node(void);
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

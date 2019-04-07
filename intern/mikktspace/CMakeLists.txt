@@ -16,11 +16,6 @@
 #
 # The Original Code is Copyright (C) 2006, Blender Foundation
 # All rights reserved.
-#
-# The Original Code is: all of this file.
-#
-# Contributor(s): Daniel Genrich
-#
 # ***** END GPL LICENSE BLOCK *****
 
 if(CMAKE_COMPILER_IS_GNUCC)
@@ -35,7 +30,7 @@ set(INC
 )
 
 set(INC_SYS
-	
+
 )
 
 set(SRC
@@ -45,4 +40,3 @@ set(SRC
 )
 
 blender_add_lib(bf_intern_mikktspace "${SRC}" "${INC}" "${INC_SYS}")
-

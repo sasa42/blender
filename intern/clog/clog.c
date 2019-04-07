@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,12 +12,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file clog/clog.c
- *  \ingroup clog
+/** \file
+ * \ingroup clog
  */
 
 #include <stdarg.h>
@@ -28,14 +24,29 @@
 #include <stdint.h>
 #include <assert.h>
 
+/* Disable for small single threaded programs
+ * to avoid having to link with pthreads. */
+#ifdef WITH_CLOG_PTHREADS
+#  include <pthread.h>
+#  include "atomic_ops.h"
+#endif
+
 /* For 'isatty' to check for color. */
-#if defined(__unix__) || defined(__APPLE__)
+#if defined(__unix__) || defined(__APPLE__) || defined(__HAIKU__)
 #  include <unistd.h>
+#  include <sys/time.h>
 #endif
 
 #if defined(_MSC_VER)
 #  include <io.h>
+#  include <windows.h>
 #endif
+
+/* For printing timestamp. */
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
+
 /* Only other dependency (could use regular malloc too). */
 #include "MEM_guardedalloc.h"
 
@@ -65,14 +76,22 @@ typedef struct CLG_IDFilter {
 typedef struct CLogContext {
 	/** Single linked list of types.  */
 	CLG_LogType *types;
+#ifdef WITH_CLOG_PTHREADS
+	pthread_mutex_t types_lock;
+#endif
+
 	/* exclude, include filters.  */
 	CLG_IDFilter *filters[2];
 	bool use_color;
 	bool use_basename;
+	bool use_timestamp;
 
 	/** Borrowed, not owned. */
 	int output;
 	FILE *output_file;
+
+	/** For timer (use_timestamp). */
+	uint64_t timestamp_tick_start;
 
 	/** For new types. */
 	struct {
@@ -81,6 +100,7 @@ typedef struct CLogContext {
 
 	struct {
 		void (*fatal_fn)(void *file_handle);
+		void (*backtrace_fn)(void *file_handle);
 	} callbacks;
 } CLogContext;
 
@@ -328,13 +348,34 @@ static CLG_LogType *clg_ctx_type_register(CLogContext *ctx, const char *identifi
 	return ty;
 }
 
-static void clg_ctx_fatal_action(CLogContext *ctx, FILE *file_handle)
+static void clg_ctx_fatal_action(CLogContext *ctx)
 {
 	if (ctx->callbacks.fatal_fn != NULL) {
-		ctx->callbacks.fatal_fn(file_handle);
+		ctx->callbacks.fatal_fn(ctx->output_file);
 	}
-	fflush(file_handle);
+	fflush(ctx->output_file);
 	abort();
+}
+
+static void clg_ctx_backtrace(CLogContext *ctx)
+{
+	/* Note: we avoid writing fo 'FILE', for backtrace we make an exception,
+	 * if necessary we could have a version of the callback that writes to file descriptor all at once. */
+	ctx->callbacks.backtrace_fn(ctx->output_file);
+	fflush(ctx->output_file);
+}
+
+static uint64_t clg_timestamp_ticks_get(void)
+{
+	uint64_t tick;
+#if defined(_MSC_VER)
+	tick = GetTickCount64();
+#else
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	tick = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+#endif
+	return tick;
 }
 
 /** \} */
@@ -342,6 +383,16 @@ static void clg_ctx_fatal_action(CLogContext *ctx, FILE *file_handle)
 /* -------------------------------------------------------------------- */
 /** \name Logging API
  * \{ */
+
+static void write_timestamp(CLogStringBuf *cstr, const uint64_t timestamp_tick_start)
+{
+	char timestamp_str[64];
+	const uint64_t timestamp = clg_timestamp_ticks_get() - timestamp_tick_start;
+	const uint timestamp_len = snprintf(
+	        timestamp_str, sizeof(timestamp_str), "%" PRIu64 ".%03u ",
+	        timestamp / 1000, (uint)(timestamp % 1000));
+	clg_str_append_with_len(cstr, timestamp_str, timestamp_len);
+}
 
 static void write_severity(CLogStringBuf *cstr, enum CLG_Severity severity, bool use_color)
 {
@@ -394,6 +445,10 @@ void CLG_log_str(
 	char cstr_stack_buf[CLOG_BUF_LEN_INIT];
 	clg_str_init(&cstr, cstr_stack_buf, sizeof(cstr_stack_buf));
 
+	if (lg->ctx->use_timestamp) {
+		write_timestamp(&cstr, lg->ctx->timestamp_tick_start);
+	}
+
 	write_severity(&cstr, severity, lg->ctx->use_color);
 	write_type(&cstr, lg);
 
@@ -404,12 +459,17 @@ void CLG_log_str(
 	clg_str_append(&cstr, "\n");
 
 	/* could be optional */
-	write(lg->ctx->output, cstr.data, cstr.len);
+	int bytes_written = write(lg->ctx->output, cstr.data, cstr.len);
+	(void)bytes_written;
 
 	clg_str_free(&cstr);
 
+	if (lg->ctx->callbacks.backtrace_fn) {
+		clg_ctx_backtrace(lg->ctx);
+	}
+
 	if (severity == CLG_SEVERITY_FATAL) {
-		clg_ctx_fatal_action(lg->ctx, lg->ctx->output_file);
+		clg_ctx_fatal_action(lg->ctx);
 	}
 }
 
@@ -420,6 +480,10 @@ void CLG_logf(
 	CLogStringBuf cstr;
 	char cstr_stack_buf[CLOG_BUF_LEN_INIT];
 	clg_str_init(&cstr, cstr_stack_buf, sizeof(cstr_stack_buf));
+
+	if (lg->ctx->use_timestamp) {
+		write_timestamp(&cstr, lg->ctx->timestamp_tick_start);
+	}
 
 	write_severity(&cstr, severity, lg->ctx->use_color);
 	write_type(&cstr, lg);
@@ -435,12 +499,17 @@ void CLG_logf(
 	clg_str_append(&cstr, "\n");
 
 	/* could be optional */
-	write(lg->ctx->output, cstr.data, cstr.len);
+	int bytes_written = write(lg->ctx->output, cstr.data, cstr.len);
+	(void)bytes_written;
 
 	clg_str_free(&cstr);
 
+	if (lg->ctx->callbacks.backtrace_fn) {
+		clg_ctx_backtrace(lg->ctx);
+	}
+
 	if (severity == CLG_SEVERITY_FATAL) {
-		clg_ctx_fatal_action(lg->ctx, lg->ctx->output_file);
+		clg_ctx_fatal_action(lg->ctx);
 	}
 }
 
@@ -453,7 +522,7 @@ void CLG_logf(
 static void CLG_ctx_output_set(CLogContext *ctx, void *file_handle)
 {
 	ctx->output_file = file_handle;
-	ctx->output = fileno(file_handle);
+	ctx->output = fileno(ctx->output_file);
 #if defined(__unix__) || defined(__APPLE__)
 	ctx->use_color = isatty(ctx->output);
 #endif
@@ -464,10 +533,23 @@ static void CLG_ctx_output_use_basename_set(CLogContext *ctx, int value)
 	ctx->use_basename = (bool)value;
 }
 
+static void CLG_ctx_output_use_timestamp_set(CLogContext *ctx, int value)
+{
+	ctx->use_timestamp = (bool)value;
+	if (ctx->use_timestamp) {
+		ctx->timestamp_tick_start = clg_timestamp_ticks_get();
+	}
+}
+
 /** Action on fatal severity. */
 static void CLG_ctx_fatal_fn_set(CLogContext *ctx, void (*fatal_fn)(void *file_handle))
 {
 	ctx->callbacks.fatal_fn = fatal_fn;
+}
+
+static void CLG_ctx_backtrace_fn_set(CLogContext *ctx, void (*backtrace_fn)(void *file_handle))
+{
+	ctx->callbacks.backtrace_fn = backtrace_fn;
 }
 
 static void clg_ctx_type_filter_append(CLG_IDFilter **flt_list, const char *type_match, int type_match_len)
@@ -492,9 +574,20 @@ static void CLG_ctx_type_filter_include(CLogContext *ctx, const char *type_match
 	clg_ctx_type_filter_append(&ctx->filters[1], type_match, type_match_len);
 }
 
+static void CLG_ctx_level_set(CLogContext *ctx, int level)
+{
+	ctx->default_type.level = level;
+	for (CLG_LogType *ty = ctx->types; ty; ty = ty->next) {
+		ty->level = level;
+	}
+}
+
 static CLogContext *CLG_ctx_init(void)
 {
 	CLogContext *ctx = MEM_callocN(sizeof(*ctx), __func__);
+#ifdef WITH_CLOG_PTHREADS
+	pthread_mutex_init(&ctx->types_lock, NULL);
+#endif
 	ctx->use_color = true;
 	ctx->default_type.level = 1;
 	CLG_ctx_output_set(ctx, stdout);
@@ -517,6 +610,9 @@ static void CLG_ctx_free(CLogContext *ctx)
 			MEM_freeN(item);
 		}
 	}
+#ifdef WITH_CLOG_PTHREADS
+	pthread_mutex_destroy(&ctx->types_lock);
+#endif
 	MEM_freeN(ctx);
 }
 
@@ -529,7 +625,7 @@ static void CLG_ctx_free(CLogContext *ctx)
  * \{ */
 
 /* We could support multiple at once, for now this seems not needed. */
-struct CLogContext *g_ctx = NULL;
+static struct CLogContext *g_ctx = NULL;
 
 void CLG_init(void)
 {
@@ -553,10 +649,19 @@ void CLG_output_use_basename_set(int value)
 	CLG_ctx_output_use_basename_set(g_ctx, value);
 }
 
+void CLG_output_use_timestamp_set(int value)
+{
+	CLG_ctx_output_use_timestamp_set(g_ctx, value);
+}
 
 void CLG_fatal_fn_set(void (*fatal_fn)(void *file_handle))
 {
 	CLG_ctx_fatal_fn_set(g_ctx, fatal_fn);
+}
+
+void CLG_backtrace_fn_set(void (*fatal_fn)(void *file_handle))
+{
+	CLG_ctx_backtrace_fn_set(g_ctx, fatal_fn);
 }
 
 void CLG_type_filter_exclude(const char *type_match, int type_match_len)
@@ -569,6 +674,12 @@ void CLG_type_filter_include(const char *type_match, int type_match_len)
 	CLG_ctx_type_filter_include(g_ctx, type_match, type_match_len);
 }
 
+void CLG_level_set(int level)
+{
+	CLG_ctx_level_set(g_ctx, level);
+}
+
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -578,9 +689,24 @@ void CLG_type_filter_include(const char *type_match, int type_match_len)
 
 void CLG_logref_init(CLG_LogRef *clg_ref)
 {
-	assert(clg_ref->type == NULL);
-	CLG_LogType *clg_ty = clg_ctx_type_find_by_name(g_ctx, clg_ref->identifier);
-	clg_ref->type = clg_ty ? clg_ty : clg_ctx_type_register(g_ctx, clg_ref->identifier);
+#ifdef WITH_CLOG_PTHREADS
+	/* Only runs once when initializing a static type in most cases. */
+	pthread_mutex_lock(&g_ctx->types_lock);
+#endif
+	if (clg_ref->type == NULL) {
+		CLG_LogType *clg_ty = clg_ctx_type_find_by_name(g_ctx, clg_ref->identifier);
+		if (clg_ty == NULL) {
+			clg_ty = clg_ctx_type_register(g_ctx, clg_ref->identifier);
+		}
+#ifdef WITH_CLOG_PTHREADS
+		atomic_cas_ptr((void **)&clg_ref->type, clg_ref->type, clg_ty);
+#else
+		clg_ref->type = clg_ty;
+#endif
+	}
+#ifdef WITH_CLOG_PTHREADS
+	pthread_mutex_unlock(&g_ctx->types_lock);
+#endif
 }
 
 /** \} */

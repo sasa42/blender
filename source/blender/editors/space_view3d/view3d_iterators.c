@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,20 +12,17 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Blender Foundation, full recode and added functions
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/space_view3d/view3d_iterators.c
- *  \ingroup spview3d
+/** \file
+ * \ingroup spview3d
  */
 
 #include "DNA_curve_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -35,11 +30,17 @@
 #include "BLI_utildefines.h"
 #include "BLI_rect.h"
 
+#include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_curve.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_displist.h"
 #include "BKE_editmesh.h"
+#include "BKE_mesh_runtime.h"
+#include "BKE_mesh_iterators.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "bmesh.h"
 
@@ -109,7 +110,12 @@ void meshobject_foreachScreenVert(
         void *userData, eV3DProjTest clip_flag)
 {
 	foreachScreenObjectVert_userData data;
-	DerivedMesh *dm = mesh_get_derived_deform(vc->scene, vc->obact, CD_MASK_BAREMESH);
+	Mesh *me;
+
+	Scene *scene_eval = DEG_get_evaluated_scene(vc->depsgraph);
+	Object *ob_eval = DEG_get_evaluated_object(vc->depsgraph, vc->obact);
+
+	me = mesh_get_eval_deform(vc->depsgraph, scene_eval, ob_eval, &CD_MASK_BAREMESH);
 
 	ED_view3d_check_mats_rv3d(vc->rv3d);
 
@@ -122,9 +128,7 @@ void meshobject_foreachScreenVert(
 		ED_view3d_clipping_local(vc->rv3d, vc->obact->obmat);
 	}
 
-	dm->foreachMappedVert(dm, meshobject_foreachScreenVert__mapFunc, &data, DM_FOREACH_NOP);
-
-	dm->release(dm);
+	BKE_mesh_foreach_mapped_vert(me, meshobject_foreachScreenVert__mapFunc, &data, MESH_FOREACH_NOP);
 }
 
 static void mesh_foreachScreenVert__mapFunc(void *userData, int index, const float co[3],
@@ -150,7 +154,8 @@ void mesh_foreachScreenVert(
         void *userData, eV3DProjTest clip_flag)
 {
 	foreachScreenVert_userData data;
-	DerivedMesh *dm = editbmesh_get_derived_cage(vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+
+	Mesh *me = editbmesh_get_eval_cage_from_orig(vc->depsgraph, vc->scene, vc->obedit, vc->em, &CD_MASK_BAREMESH);
 
 	ED_view3d_check_mats_rv3d(vc->rv3d);
 
@@ -164,9 +169,7 @@ void mesh_foreachScreenVert(
 	}
 
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_VERT);
-	dm->foreachMappedVert(dm, mesh_foreachScreenVert__mapFunc, &data, DM_FOREACH_NOP);
-
-	dm->release(dm);
+	BKE_mesh_foreach_mapped_vert(me, mesh_foreachScreenVert__mapFunc, &data, MESH_FOREACH_NOP);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -204,7 +207,8 @@ void mesh_foreachScreenEdge(
         void *userData, eV3DProjTest clip_flag)
 {
 	foreachScreenEdge_userData data;
-	DerivedMesh *dm = editbmesh_get_derived_cage(vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
+
+	Mesh *me = editbmesh_get_eval_cage_from_orig(vc->depsgraph, vc->scene, vc->obedit, vc->em, &CD_MASK_BAREMESH);
 
 	ED_view3d_check_mats_rv3d(vc->rv3d);
 
@@ -224,9 +228,7 @@ void mesh_foreachScreenEdge(
 	}
 
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_EDGE);
-	dm->foreachMappedEdge(dm, mesh_foreachScreenEdge__mapFunc, &data);
-
-	dm->release(dm);
+	BKE_mesh_foreach_mapped_edge(me, mesh_foreachScreenEdge__mapFunc, &data);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -250,8 +252,8 @@ void mesh_foreachScreenFace(
         void *userData, const eV3DProjTest clip_flag)
 {
 	foreachScreenFace_userData data;
-	DerivedMesh *dm = editbmesh_get_derived_cage(vc->scene, vc->obedit, vc->em, CD_MASK_BAREMESH);
 
+	Mesh *me = editbmesh_get_eval_cage_from_orig(vc->depsgraph, vc->scene, vc->obedit, vc->em, &CD_MASK_BAREMESH);
 	ED_view3d_check_mats_rv3d(vc->rv3d);
 
 	data.vc = *vc;
@@ -260,9 +262,7 @@ void mesh_foreachScreenFace(
 	data.clip_flag = clip_flag;
 
 	BM_mesh_elem_table_ensure(vc->em->bm, BM_FACE);
-	dm->foreachMappedFaceCenter(dm, mesh_foreachScreenFace__mapFunc, &data, DM_FOREACH_NOP);
-
-	dm->release(dm);
+	BKE_mesh_foreach_mapped_face_center(me, mesh_foreachScreenFace__mapFunc, &data, MESH_FOREACH_NOP);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -291,7 +291,7 @@ void nurbs_foreachScreenVert(
 				if (bezt->hide == 0) {
 					float screen_co[2];
 
-					if (cu->drawflag & CU_HIDE_HANDLES) {
+					if ((vc->v3d->overlay.edit_flag & V3D_OVERLAY_EDIT_CU_HANDLES) == 0) {
 						if (ED_view3d_project_float_object(vc->ar, bezt->vec[1], screen_co,
 						                                   V3D_PROJ_RET_CLIP_BB | V3D_PROJ_RET_CLIP_WIN) == V3D_PROJ_RET_OK)
 						{
@@ -366,7 +366,7 @@ void lattice_foreachScreenVert(
 	Object *obedit = vc->obedit;
 	Lattice *lt = obedit->data;
 	BPoint *bp = lt->editlatt->latt->def;
-	DispList *dl = obedit->curve_cache ? BKE_displist_find(&obedit->curve_cache->disp, DL_VERTS) : NULL;
+	DispList *dl = obedit->runtime.curve_cache ? BKE_displist_find(&obedit->runtime.curve_cache->disp, DL_VERTS) : NULL;
 	const float *co = dl ? dl->verts : NULL;
 	int i, N = lt->editlatt->latt->pntsu * lt->editlatt->latt->pntsv * lt->editlatt->latt->pntsw;
 
@@ -438,19 +438,21 @@ void pose_foreachScreenBone(
         void (*func)(void *userData, struct bPoseChannel *pchan, const float screen_co_a[2], const float screen_co_b[2]),
         void *userData, const eV3DProjTest clip_flag)
 {
-	bArmature *arm = vc->obact->data;
+	const Object *ob_eval = DEG_get_evaluated_object(vc->depsgraph, vc->obact);
+	const bArmature *arm_eval = ob_eval->data;
 	bPose *pose = vc->obact->pose;
 	bPoseChannel *pchan;
 
 	ED_view3d_check_mats_rv3d(vc->rv3d);
 
 	for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-		if (PBONE_VISIBLE(arm, pchan->bone)) {
+		if (PBONE_VISIBLE(arm_eval, pchan->bone)) {
+			bPoseChannel *pchan_eval = BKE_pose_channel_find_name(ob_eval->pose, pchan->name);
 			float screen_co_a[2], screen_co_b[2];
 			int points_proj_tot = 0;
 
 			/* project head location to screenspace */
-			if (ED_view3d_project_float_object(vc->ar, pchan->pose_head, screen_co_a, clip_flag) == V3D_PROJ_RET_OK) {
+			if (ED_view3d_project_float_object(vc->ar, pchan_eval->pose_head, screen_co_a, clip_flag) == V3D_PROJ_RET_OK) {
 				points_proj_tot++;
 			}
 			else {
@@ -459,7 +461,7 @@ void pose_foreachScreenBone(
 			}
 
 			/* project tail location to screenspace */
-			if (ED_view3d_project_float_object(vc->ar, pchan->pose_tail, screen_co_b, clip_flag) == V3D_PROJ_RET_OK) {
+			if (ED_view3d_project_float_object(vc->ar, pchan_eval->pose_tail, screen_co_b, clip_flag) == V3D_PROJ_RET_OK) {
 				points_proj_tot++;
 			}
 			else {

@@ -1,6 +1,4 @@
 /*
- * ***** BEGIN GPL LICENSE BLOCK *****
- *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -14,14 +12,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Contributor(s): Joseph Eagar.
- *
- * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/bmesh/operators/bmo_mesh_conv.c
- *  \ingroup bmesh
+/** \file
+ * \ingroup bmesh
  *
  * This file contains functions
  * for converting a Mesh
@@ -38,6 +32,7 @@
 #include "bmesh.h"
 #include "intern/bmesh_operators_private.h"
 
+#include "BKE_global.h"
 
 void bmo_mesh_to_bmesh_exec(BMesh *bm, BMOperator *op)
 {
@@ -72,7 +67,7 @@ void bmo_bmesh_to_mesh_exec(BMesh *bm, BMOperator *op)
 	/* Object *ob = BMO_slot_ptr_get(op, "object"); */
 
 	BM_mesh_bm_to_me(
-	        bm, me,
+	        G.main, bm, me,
 	        (&(struct BMeshToMeshParams){
 	            .calc_object_remap = true,
 	        }));
